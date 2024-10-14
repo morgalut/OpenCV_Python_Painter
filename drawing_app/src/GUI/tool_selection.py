@@ -20,8 +20,10 @@ class ToolSelection:
         self.main_window.statusBar().showMessage("Pen Tool Selected")
 
     def select_brush_tool(self):
+        """Select the Brush tool."""
         self.current_tool = Brush(self.canvas_manager)
         self.main_window.statusBar().showMessage("Brush Tool Selected")
+        self.canvas_manager.enable_drawing()  # Enable drawing for the brush
 
     def select_eraser_tool(self):
         self.current_tool = Eraser(self.canvas_manager)

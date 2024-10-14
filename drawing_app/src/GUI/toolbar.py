@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import QToolBar, QColorDialog, QSlider, QLabel, QPushButton
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt
+from tools.brush import Brush
 from tools.eraser import Eraser
 
 class ToolbarManager:
@@ -16,10 +17,21 @@ class ToolbarManager:
         pen_action.triggered.connect(self.main_window.tool_selection.select_pen_tool)
         toolbar.addAction(pen_action)
 
-        # Brush tool
-        brush_action = QAction("Brush Tool", self.main_window)
-        brush_action.triggered.connect(self.main_window.tool_selection.select_brush_tool)
-        toolbar.addAction(brush_action)
+        # Brush tool type selection
+        brush_type_label = QLabel("Brush Type:")
+        toolbar.addWidget(brush_type_label)
+
+        bristle_brush_button = QPushButton("Bristle")
+        bristle_brush_button.clicked.connect(lambda: self.select_and_set_brush("bristle"))
+        toolbar.addWidget(bristle_brush_button)
+
+        soft_brush_button = QPushButton("Soft")
+        soft_brush_button.clicked.connect(lambda: self.select_and_set_brush("soft"))
+        toolbar.addWidget(soft_brush_button)
+
+        textured_brush_button = QPushButton("Textured")
+        textured_brush_button.clicked.connect(lambda: self.select_and_set_brush("textured"))
+        toolbar.addWidget(textured_brush_button)
 
         # Eraser tool
         eraser_action = QAction("Eraser Tool", self.main_window)
@@ -81,6 +93,19 @@ class ToolbarManager:
         line_action = QAction("Line Tool", self.main_window)
         line_action.triggered.connect(self.main_window.tool_selection.select_line_tool)
         toolbar.addAction(line_action)
+
+    def select_and_set_brush(self, brush_type):
+        """Ensure the Brush tool is selected and set the brush type."""
+        if not isinstance(self.main_window.tool_selection.current_tool, Brush):
+            self.main_window.tool_selection.select_brush_tool()  # Ensure brush is selected
+        current_tool = self.main_window.tool_selection.current_tool
+        if isinstance(current_tool, Brush):
+            current_tool.set_brush_type(brush_type)
+            self.main_window.statusBar().showMessage(f"Brush type set to {brush_type}")
+            self.main_window.canvas_manager.enable_drawing()  # Enable drawing when brush is selected
+            self.main_window.canvas_manager.update_canvas()  # Force canvas update
+        else:
+            self.main_window.statusBar().showMessage("Brush tool is not active.")
 
     def set_eraser_shape_circle(self):
         """Set the eraser shape to circle if the Eraser tool is selected."""

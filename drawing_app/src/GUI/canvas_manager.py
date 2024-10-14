@@ -1,4 +1,3 @@
-# C:\Users\Mor\Desktop\drawing_app\drawing_app\src\GUI\canvas_manager.py
 import cv2
 from PySide6.QtGui import QImage, QPixmap
 from drawing_manager import DrawingManager
@@ -12,9 +11,12 @@ class CanvasManager:
         self.canvas_label = canvas_label
         self.drawing_manager = DrawingManager(self.canvas_label)
         self.zoom_factor = 1.0
+        self.temp_image = None  # Temporary image for drag operations (double-buffering)
+        self.offset_x = 0  # Offset for panning
+        self.offset_y = 0
 
     def update_canvas(self):
-        """Update the canvas display with the current drawing."""
+        """Update the canvas display with the current drawing (base image)."""
         image = self.drawing_manager.image
         self._set_canvas_image(image)
 
@@ -78,16 +80,35 @@ class CanvasManager:
         self.zoom_factor = max(0.1, self.zoom_factor * factor)  # Prevent zooming too small
         self.update_zoomed_canvas()
 
+    def pan(self, delta_x, delta_y):
+        """Pan the canvas by adjusting the offset."""
+        self.offset_x += delta_x
+        self.offset_y += delta_y
+        self.update_zoomed_canvas()
+
     def update_zoomed_canvas(self):
-        """Update the canvas with the current zoom factor applied."""
+        """Update the canvas with the current zoom factor and panning applied."""
         zoomed_image = cv2.resize(self.drawing_manager.image, None, fx=self.zoom_factor, fy=self.zoom_factor, interpolation=cv2.INTER_LINEAR)
-        self.update_canvas_with_image(zoomed_image)
+
+        # Crop the zoomed image based on the offsets
+        cropped_image = self._apply_offset(zoomed_image)
+
+        self.update_canvas_with_image(cropped_image)
+
+    def _apply_offset(self, zoomed_image):
+        """Apply panning offset to the zoomed image."""
+        max_x_offset = max(0, zoomed_image.shape[1] - self.drawing_manager.width)
+        max_y_offset = max(0, zoomed_image.shape[0] - self.drawing_manager.height)
+
+        # Ensure the offsets are within bounds
+        self.offset_x = min(max(self.offset_x, 0), max_x_offset)
+        self.offset_y = min(max(self.offset_y, 0), max_y_offset)
+
+        return zoomed_image[self.offset_y:self.offset_y + self.drawing_manager.height,
+                            self.offset_x:self.offset_x + self.drawing_manager.width]
 
     def _scale_points(self, *points):
-        """
-        Scale points according to the current zoom factor.
-        This ensures that drawing operations like lines and shapes behave correctly when zooming.
-        """
+        """Scale points according to the current zoom factor."""
         return tuple(self._scale_point(point) for point in points)
 
     def _scale_point(self, point):
@@ -99,15 +120,12 @@ class CanvasManager:
         return tuple(int(v * self.zoom_factor) for v in values)
 
     def _set_canvas_image(self, image):
-        """
-        Convert the image to QPixmap and set it on the QLabel canvas.
-        """
+        """Convert the image to QPixmap and set it on the QLabel canvas."""
         height, width, channel = image.shape
         bytes_per_line = 3 * width
         q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
         self.canvas_label.setPixmap(QPixmap.fromImage(q_image))
 
-    # Expose properties like color, image, thickness, etc., from DrawingManager
     @property
     def color(self):
         return self.drawing_manager.color
@@ -115,6 +133,11 @@ class CanvasManager:
     @property
     def image(self):
         return self.drawing_manager.image
+
+    @image.setter
+    def image(self, new_image):
+        """Setter for the image property."""
+        self.drawing_manager.image = new_image
 
     @property
     def thickness(self):
