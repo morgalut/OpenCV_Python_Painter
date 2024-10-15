@@ -1,5 +1,6 @@
 import cv2
 from PySide6.QtGui import QImage, QPixmap
+import numpy as np
 from drawing_manager import DrawingManager
 
 class CanvasManager:
@@ -121,10 +122,15 @@ class CanvasManager:
 
     def _set_canvas_image(self, image):
         """Convert the image to QPixmap and set it on the QLabel canvas."""
+        # Ensure the image is C-contiguous before passing it to QImage
+        if not image.flags['C_CONTIGUOUS']:
+            image = np.ascontiguousarray(image)
+        
         height, width, channel = image.shape
         bytes_per_line = 3 * width
         q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
         self.canvas_label.setPixmap(QPixmap.fromImage(q_image))
+
 
     @property
     def color(self):

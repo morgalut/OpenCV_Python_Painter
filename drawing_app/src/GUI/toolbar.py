@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QToolBar, QColorDialog, QSlider, QLabel, QPushButton
 from PySide6.QtGui import QAction
 from PySide6.QtCore import Qt
-from tools.brush import Brush
+from tools.Brush.BlurBrush import BlurBrush  # Import the new BlurBrush
+from tools.Brush.brush import Brush
 from tools.eraser import Eraser
 
 class ToolbarManager:
@@ -18,20 +19,11 @@ class ToolbarManager:
         toolbar.addAction(pen_action)
 
         # Brush tool type selection
-        brush_type_label = QLabel("Brush Type:")
-        toolbar.addWidget(brush_type_label)
-
-        bristle_brush_button = QPushButton("Bristle")
-        bristle_brush_button.clicked.connect(lambda: self.select_and_set_brush("bristle"))
-        toolbar.addWidget(bristle_brush_button)
-
-        soft_brush_button = QPushButton("Soft")
-        soft_brush_button.clicked.connect(lambda: self.select_and_set_brush("soft"))
-        toolbar.addWidget(soft_brush_button)
-
-        textured_brush_button = QPushButton("Textured")
-        textured_brush_button.clicked.connect(lambda: self.select_and_set_brush("textured"))
-        toolbar.addWidget(textured_brush_button)
+        toolbar.addWidget(QLabel("Brush Type:"))
+        self.add_brush_button(toolbar, "Bristle")
+        self.add_brush_button(toolbar, "Soft")
+        self.add_brush_button(toolbar, "Textured")
+        self.add_blur_brush_button(toolbar)  # Add Blur Brush Button
 
         # Eraser tool
         eraser_action = QAction("Eraser Tool", self.main_window)
@@ -54,22 +46,13 @@ class ToolbarManager:
         toolbar.addAction(clear_action)
 
         # Thickness Slider
-        toolbar.addWidget(QLabel("Thickness:"))
-        self.thickness_slider = QSlider(Qt.Horizontal)
-        self.thickness_slider.setMinimum(1)
-        self.thickness_slider.setMaximum(30)
-        self.thickness_slider.setValue(self.main_window.canvas_manager.thickness)
-        self.thickness_slider.valueChanged.connect(self.change_thickness)
-        toolbar.addWidget(self.thickness_slider)
+        self.add_slider(toolbar, "Thickness:", 1, 30, self.main_window.canvas_manager.thickness, self.change_thickness)
 
         # Opacity Slider
-        toolbar.addWidget(QLabel("Opacity:"))
-        self.opacity_slider = QSlider(Qt.Horizontal)
-        self.opacity_slider.setMinimum(0)
-        self.opacity_slider.setMaximum(100)
-        self.opacity_slider.setValue(int(self.main_window.canvas_manager.opacity * 100))
-        self.opacity_slider.valueChanged.connect(self.change_opacity)
-        toolbar.addWidget(self.opacity_slider)
+        self.add_slider(toolbar, "Opacity:", 0, 100, int(self.main_window.canvas_manager.opacity * 100), self.change_opacity)
+
+        # Blur Intensity Slider
+        self.add_slider(toolbar, "Blur Intensity:", 1, 50, 5, self.change_blur_intensity)
 
         # Zoom Controls
         zoom_in_button = QPushButton("Zoom In")
@@ -82,48 +65,76 @@ class ToolbarManager:
 
         # Eraser Shape Controls (for Eraser tool)
         toolbar.addWidget(QLabel("Eraser Shape:"))
-        circle_eraser_button = QPushButton("Circle")
-        circle_eraser_button.clicked.connect(self.set_eraser_shape_circle)
-        toolbar.addWidget(circle_eraser_button)
+        self.add_eraser_shape_button(toolbar, "Circle", "circle")
+        self.add_eraser_shape_button(toolbar, "Square", "square")
 
-        square_eraser_button = QPushButton("Square")
-        square_eraser_button.clicked.connect(self.set_eraser_shape_square)
-        toolbar.addWidget(square_eraser_button)
+    def add_brush_button(self, toolbar, brush_type):
+        """Helper function to add brush type buttons."""
+        brush_button = QPushButton(brush_type)
+        brush_button.clicked.connect(lambda: self.select_and_set_brush(brush_type.lower()))
+        toolbar.addWidget(brush_button)
 
-        line_action = QAction("Line Tool", self.main_window)
-        line_action.triggered.connect(self.main_window.tool_selection.select_line_tool)
-        toolbar.addAction(line_action)
+    def add_blur_brush_button(self, toolbar):
+        """Add a button to select the blur brush."""
+        blur_brush_button = QPushButton("Blur Brush")
+        blur_brush_button.clicked.connect(self.select_blur_brush)
+        toolbar.addWidget(blur_brush_button)
+
+    def add_slider(self, toolbar, label_text, min_val, max_val, initial_val, callback):
+        """Helper function to add a slider to the toolbar."""
+        toolbar.addWidget(QLabel(label_text))
+        slider = QSlider(Qt.Horizontal)
+        slider.setMinimum(min_val)
+        slider.setMaximum(max_val)
+        slider.setValue(initial_val)
+        slider.valueChanged.connect(callback)
+        toolbar.addWidget(slider)
+
+    def add_eraser_shape_button(self, toolbar, label_text, shape):
+        """Helper function to add eraser shape buttons."""
+        eraser_button = QPushButton(label_text)
+        eraser_button.clicked.connect(lambda: self.set_eraser_shape(shape))
+        toolbar.addWidget(eraser_button)
 
     def select_and_set_brush(self, brush_type):
         """Ensure the Brush tool is selected and set the brush type."""
-        if not isinstance(self.main_window.tool_selection.current_tool, Brush):
-            self.main_window.tool_selection.select_brush_tool()  # Ensure brush is selected
         current_tool = self.main_window.tool_selection.current_tool
+
+        # If current tool is not a brush, select the brush tool first
+        if not isinstance(current_tool, Brush):
+            self.main_window.tool_selection.select_brush_tool()  # Ensure brush is selected
+            current_tool = self.main_window.tool_selection.current_tool  # Update current_tool
+
+        # Now that the brush tool is selected, set the brush type
         if isinstance(current_tool, Brush):
             current_tool.set_brush_type(brush_type)
-            self.main_window.statusBar().showMessage(f"Brush type set to {brush_type}")
-            self.main_window.canvas_manager.enable_drawing()  # Enable drawing when brush is selected
-            self.main_window.canvas_manager.update_canvas()  # Force canvas update
+            self.main_window.statusBar().showMessage(f"Brush type set to {brush_type.capitalize()}")
+            self.main_window.canvas_manager.enable_drawing()
+            self.main_window.canvas_manager.update_canvas()
         else:
-            self.main_window.statusBar().showMessage("Brush tool is not active.")
+            self.main_window.statusBar().showMessage("Brush tool not selected properly.")
 
-    def set_eraser_shape_circle(self):
-        """Set the eraser shape to circle if the Eraser tool is selected."""
+    def select_blur_brush(self):
+        """Select the blur brush tool."""
+        self.main_window.tool_selection.current_tool = BlurBrush(self.main_window.canvas_manager)
+        self.main_window.statusBar().showMessage("Blur Brush Selected")
+        self.main_window.canvas_manager.enable_drawing()
+
+    def change_blur_intensity(self, value):
+        """Change the blur intensity of the blur brush."""
+        current_tool = self.main_window.tool_selection.current_tool
+        if isinstance(current_tool, BlurBrush):
+            current_tool.set_blur_strength(value)
+            self.main_window.statusBar().showMessage(f"Blur Intensity set to {value}")
+
+    def set_eraser_shape(self, shape):
+        """Set the eraser shape if the Eraser tool is selected."""
         current_tool = self.main_window.tool_selection.current_tool
         if isinstance(current_tool, Eraser):
-            current_tool.set_eraser_shape("circle")
-            self.main_window.statusBar().showMessage("Eraser shape set to Circle")
+            current_tool.set_eraser_shape(shape)
+            self.main_window.statusBar().showMessage(f"Eraser shape set to {shape.capitalize()}")
         else:
-            self.main_window.statusBar().showMessage("Select the Eraser Tool to change the eraser shape.")
-
-    def set_eraser_shape_square(self):
-        """Set the eraser shape to square if the Eraser tool is selected."""
-        current_tool = self.main_window.tool_selection.current_tool
-        if isinstance(current_tool, Eraser):
-            current_tool.set_eraser_shape("square")
-            self.main_window.statusBar().showMessage("Eraser shape set to Square")
-        else:
-            self.main_window.statusBar().showMessage("Select the Eraser Tool to change the eraser shape.")
+            self.main_window.statusBar().showMessage("Select the Eraser Tool to change its shape.")
 
     def pick_color(self):
         """Open a color picker dialog to choose the drawing color."""
@@ -133,17 +144,16 @@ class ToolbarManager:
             self.main_window.canvas_manager.set_color(rgb_color)
             self.main_window.statusBar().showMessage(f"Color Selected: {color.name()}")
 
-    def change_thickness(self):
+    def change_thickness(self, value):
         """Adjust the thickness of the current drawing tool."""
-        thickness = self.thickness_slider.value()
         current_tool = self.main_window.tool_selection.current_tool
         if hasattr(current_tool, 'set_thickness'):
-            current_tool.set_thickness(thickness)
-        self.main_window.statusBar().showMessage(f"Thickness set to {thickness}px")
+            current_tool.set_thickness(value)
+        self.main_window.statusBar().showMessage(f"Thickness set to {value}px")
 
-    def change_opacity(self):
+    def change_opacity(self, value):
         """Adjust the opacity of the current drawing tool."""
-        opacity = self.opacity_slider.value() / 100.0
+        opacity = value / 100.0
         current_tool = self.main_window.tool_selection.current_tool
         if hasattr(current_tool, 'set_opacity'):
             current_tool.set_opacity(opacity)
