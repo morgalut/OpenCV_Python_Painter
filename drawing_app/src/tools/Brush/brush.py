@@ -73,9 +73,6 @@ class Brush(Tool):
     def _draw_brush_stroke(self, start_point, end_point, temp=True):
         """
         Draw the brush stroke from start to end, applying the appropriate texture or effect.
-        :param start_point: Starting point of the stroke.
-        :param end_point: Ending point of the stroke.
-        :param temp: Whether to draw on the temporary image (during drag) or final canvas (on release).
         """
         target_image = self.temp_image if temp else self.drawing_manager.image
 
@@ -88,16 +85,17 @@ class Brush(Tool):
 
     def _draw_bristle_stroke(self, image, start_point, end_point):
         """Draw a bristle-like stroke with randomness to simulate individual bristles."""
+        color_with_opacity = self._apply_opacity(self.drawing_manager.color, self.opacity)
         for _ in range(5):  # Simulate multiple bristles by adding jitter
             jitter_start = (start_point[0] + np.random.randint(-3, 3), start_point[1] + np.random.randint(-3, 3))
             jitter_end = (end_point[0] + np.random.randint(-3, 3), end_point[1] + np.random.randint(-3, 3))
-            cv2.line(image, jitter_start, jitter_end, self.drawing_manager.color, np.random.randint(2, 5))
+            cv2.line(image, jitter_start, jitter_end, color_with_opacity, np.random.randint(2, 5))
 
     def _draw_soft_stroke(self, image, start_point, end_point):
         """Draw a soft stroke using Gaussian blur localized to the stroke area."""
-        # Draw the basic stroke
-        cv2.line(image, start_point, end_point, self.drawing_manager.color, self.drawing_manager.thickness)
-        
+        color_with_opacity = self._apply_opacity(self.drawing_manager.color, self.opacity)
+        cv2.line(image, start_point, end_point, color_with_opacity, self.drawing_manager.thickness)
+
         # Create a mask to localize the blur effect
         mask = np.zeros_like(image)
         cv2.line(mask, start_point, end_point, 255, self.drawing_manager.thickness)
@@ -122,6 +120,10 @@ class Brush(Tool):
 
         # Apply the texture to the stroke area
         image[mask > 0] = cv2.bitwise_and(image[mask > 0], texture_resized[mask > 0])
+
+    def _apply_opacity(self, color, opacity):
+        """Apply opacity to the color for blending."""
+        return [int(c * opacity) for c in color]
 
     def _commit_stroke_to_canvas(self):
         """Save the current stroke from the temporary image to the base canvas image."""

@@ -10,6 +10,9 @@ class CanvasManager:
         Initialize the CanvasManager class that manages the drawing canvas and interacts
         with the DrawingManager for performing drawing operations.
         """
+        if canvas_label is None:
+            raise ValueError("Canvas label cannot be None. Please provide a valid QLabel for the canvas.")
+        
         self.canvas_label = canvas_label
         self.drawing_manager = DrawingManager(self.canvas_label)
         self.back_button = BackButton(self.drawing_manager)  # Initialize BackButton for undo functionality
@@ -17,6 +20,7 @@ class CanvasManager:
         self.temp_image = None  # Temporary image for drag operations (double-buffering)
         self.offset_x = 0  # Offset for panning
         self.offset_y = 0
+
 
     def update_canvas(self):
         """Update the canvas display with the current drawing (base image)."""
@@ -44,12 +48,18 @@ class CanvasManager:
         """Disable the drawing feature on the canvas."""
         self.drawing_manager.disable_drawing()
 
-    def draw_line(self, start_point, end_point):
-        """Draw a zoom-aware line on the canvas."""
-        self.back_button.save_state()  # Save state before drawing a line
-        scaled_start, scaled_end = self._scale_points(start_point, end_point)
-        self.drawing_manager.draw_line(scaled_start, scaled_end)  # Pass only two arguments
-        self.update_canvas()
+    def draw_line(self, start_point, end_point, color=None):
+        """
+        Draw a line on the canvas using the specified color.
+        :param start_point: Starting point of the line.
+        :param end_point: Ending point of the line.
+        :param color: The color to use for the line (if None, use the current color).
+        """
+        if color is None:
+            color = self.color  # Use the currently set color if none is provided
+        
+        cv2.line(self.image, start_point, end_point, color, self.thickness)
+        self.update_canvas()  # Assuming you have a method to update the canvas
 
     def draw_rectangle(self, start_point, end_point):
         """Draw a zoom-aware rectangle on the canvas."""

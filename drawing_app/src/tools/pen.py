@@ -24,8 +24,8 @@ class Pen(Tool):
         """
         if self.last_point and event:
             current_point = (event.pos().x(), event.pos().y())
-            self.drawing_manager.draw_line(self.last_point, current_point)  # No color passed here
-            self.last_point = current_point  # Update to the current point for continuous drawing
+            self.drawing_manager.draw_line(self.last_point, current_point, self.drawing_manager.color)  # Pass color
+            self.last_point = current_point
 
     def on_release(self, event):
         """
