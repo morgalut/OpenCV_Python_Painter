@@ -1,7 +1,6 @@
 import sys
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QApplication, QMainWindow
-from GUI.gui import DrawingApp
 
 class Worker(QThread):
     finished = Signal()
@@ -17,9 +16,14 @@ class Worker(QThread):
         except Exception as e:
             self.error.emit(str(e))  # Emit an error signal with the exception message
 
-class DrawingAppWithWorker(DrawingApp):
+class DrawingAppWithWorker(QMainWindow):
     def __init__(self):
         super().__init__()
+        # Avoid circular import by importing DrawingApp locally
+        from GUI.gui import DrawingApp
+
+        self.drawing_app = DrawingApp()  # Create an instance of DrawingApp
+        self.setCentralWidget(self.drawing_app)
 
         # Initialize the worker thread but don't start immediately
         self.worker = Worker()
@@ -37,12 +41,10 @@ class DrawingAppWithWorker(DrawingApp):
     def on_task_finished(self):
         """Handle when the background task finishes."""
         print("Background task finished")
-        # Optionally update the GUI or notify the user
 
     def on_task_error(self, error_message):
         """Handle errors from the worker."""
         print(f"Error occurred: {error_message}")
-        # Optionally display an error message to the user
 
 def main():
     # Create the QApplication

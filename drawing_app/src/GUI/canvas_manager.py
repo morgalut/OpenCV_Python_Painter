@@ -2,6 +2,7 @@ import cv2
 from PySide6.QtGui import QImage, QPixmap
 import numpy as np
 from drawing_manager import DrawingManager
+from tools.back_button import BackButton
 
 class CanvasManager:
     def __init__(self, canvas_label):
@@ -11,6 +12,7 @@ class CanvasManager:
         """
         self.canvas_label = canvas_label
         self.drawing_manager = DrawingManager(self.canvas_label)
+        self.back_button = BackButton(self.drawing_manager)  # Initialize BackButton for undo functionality
         self.zoom_factor = 1.0
         self.temp_image = None  # Temporary image for drag operations (double-buffering)
         self.offset_x = 0  # Offset for panning
@@ -30,6 +32,7 @@ class CanvasManager:
 
     def clear_canvas(self):
         """Clear the canvas to its initial background color."""
+        self.back_button.clear_history()  # Clear undo history
         self.drawing_manager.clear_canvas()
         self.update_canvas()
 
@@ -43,8 +46,9 @@ class CanvasManager:
 
     def draw_line(self, start_point, end_point):
         """Draw a zoom-aware line on the canvas."""
+        self.back_button.save_state()  # Save state before drawing a line
         scaled_start, scaled_end = self._scale_points(start_point, end_point)
-        self.drawing_manager.draw_line(scaled_start, scaled_end)
+        self.drawing_manager.draw_line(scaled_start, scaled_end)  # Pass only two arguments
         self.update_canvas()
 
     def draw_rectangle(self, start_point, end_point):
@@ -72,6 +76,14 @@ class CanvasManager:
     def set_opacity(self, opacity):
         """Set the opacity for the drawing tools."""
         self.drawing_manager.set_opacity(opacity)
+
+    def zoom_in(self):
+        """Zoom in by increasing the zoom factor."""
+        self.zoom(1.2)
+
+    def zoom_out(self):
+        """Zoom out by decreasing the zoom factor."""
+        self.zoom(0.8)
 
     def zoom(self, factor):
         """
@@ -125,12 +137,11 @@ class CanvasManager:
         # Ensure the image is C-contiguous before passing it to QImage
         if not image.flags['C_CONTIGUOUS']:
             image = np.ascontiguousarray(image)
-        
+
         height, width, channel = image.shape
         bytes_per_line = 3 * width
         q_image = QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
         self.canvas_label.setPixmap(QPixmap.fromImage(q_image))
-
 
     @property
     def color(self):
